@@ -6,23 +6,18 @@ const session = require("express-session");
 const passport = require("passport");
 
 const connectDB = require("./config/db");
-
+const { initStorage } = require("./config/multer");
 
 // Initialize app
 const app = express();
 
-
-// Connect Database
-connectDB();
-
-// Passport config
-require("./config/passport");
-
 // Middleware
-app.use(cors({
-  origin: "http://localhost:3000",
-  credentials: true,
-}));
+app.use(
+  cors({
+    origin: "http://localhost:3000",
+    credentials: true,
+  })
+);
 
 app.use(express.json());
 
@@ -34,22 +29,45 @@ app.use(
   })
 );
 
-// Passport middleware
+// Passport config
+require("./config/passport");
+
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Routes
 const authRoutes = require("./routes/authRoutes");
+const userRoutes = require("./routes/userRoutes");
+const fileRoutes = require("./routes/fileRoutes");
+
 app.use("/auth", authRoutes);
+app.use("/api", userRoutes);
+app.use("/api", fileRoutes);
+
 
 app.get("/", (req, res) => {
   res.send("MyFileDrive API Running");
 });
 
-const userRoutes = require("./routes/userRoutes");
-app.use("/api", userRoutes);
+//Start server AFTER DB is ready
+const startServer = async () => {
+  try {
+    // 1. Connect DB
+    await connectDB();
+    console.log("MongoDB Connected");
 
-const PORT = process.env.PORT || 5000;
+    // 2. Initialize Multer storage for uploads
+    initStorage();
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
-});
+    // 3. Start server
+    const PORT = process.env.PORT || 5000;
+    app.listen(PORT, () => {
+      console.log(`Server running on port ${PORT}`);
+    });
+
+  } catch (err) {
+    console.error("Server failed to start:", err);
+  }
+};
+
+startServer();
