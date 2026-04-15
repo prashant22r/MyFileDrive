@@ -8,7 +8,15 @@ const userSchema = new mongoose.Schema(
     },
     name: String,
     email: String,
-    profilePicture: String,
+    profilePhotoUrl: {
+      type :String,
+      default : ""
+    },
+    profilePhotoSource: {
+      type :String,
+      default : "google"
+    },
+    // can store in s3 in future if we want to support custom profile photos uploaded by users instead of using Google profile photos
   },
   { timestamps: true }
 );

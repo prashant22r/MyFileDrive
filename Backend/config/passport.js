@@ -11,15 +11,21 @@ passport.use(
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
+        const profilePhotoUrl = profile.photos?.[0]?.value || "";
         let user = await User.findOne({ googleId: profile.id });
 
         if (!user) {
           user = await User.create({
             googleId: profile.id,
             name: profile.displayName,
-            email: profile.emails[0].value,
-            profilePicture: profile.photos[0].value,
+            email: profile.emails?.[0]?.value,
+            profilePhotoUrl,
+            profilePhotoSource: "google",
           });
+        } else if (user.profilePhotoSource === "google" && user.profilePhotoUrl !== profilePhotoUrl) {
+          // Keep Google-hosted profile image in sync on subsequent logins.
+          user.profilePhotoUrl = profilePhotoUrl;
+          await user.save();
         }
 
         return done(null, user);
