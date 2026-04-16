@@ -34,11 +34,16 @@ const fileSchema = new mongoose.Schema({
     isPublic: {
         type: Boolean,
         default: false
+    },
+    folderId : {
+        type: mongoose.Schema.Types.ObjectId,
+        ref : 'Folder',
+        default : null
     }
 }, { timestamps: true });
 
-fileSchema.index({ owner: 1, createdAt: -1 }); // For efficient retrieval of user's files sorted by creation date
 fileSchema.index({ owner: 1, contentHash: 1 }, { unique: true }); // Prevent duplicate uploads for the same user
+fileSchema.index({ owner : 1, folderId : 1, createdAt : -1 }); // For efficient retrieval of files within a folder sorted by creation date
 
 module.exports = mongoose.model('File', fileSchema);
 

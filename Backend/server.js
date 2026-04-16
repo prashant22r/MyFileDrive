@@ -39,10 +39,13 @@ app.use(passport.session());
 const authRoutes = require("./routes/authRoutes");
 const userRoutes = require("./routes/userRoutes");
 const fileRoutes = require("./routes/fileRoutes");
+const folderRoutes = require("./routes/folderRoutes");
 
 app.use("/auth", authRoutes);
 app.use("/api", userRoutes);
 app.use("/api", fileRoutes);
+app.use("/api", folderRoutes);
+
 
 
 app.get("/", (req, res) => {

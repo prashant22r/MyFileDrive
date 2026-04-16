@@ -6,6 +6,7 @@ const { getSignedUrl } = require("@aws-sdk/s3-request-presigner");
 const s3 = require("../config/s3");
 const { protect } = require("../middleware/authMiddleware");
 const File = require("../models/File");
+const Folder = require("../models/Folder");
 const mongoose = require("mongoose");
 
 const router = express.Router();
@@ -20,9 +21,21 @@ router.post("/upload", protect, (req, res) => {
 
     try {
       const file = req.file;
-
       if (!file) {
         return res.status(400).json({ message: "No file uploaded" });
+      }
+
+      // folderId comes from multipart form-data as a string
+      const folderIdRaw = req.body.folderId;
+      let folderId = null;
+      if (folderIdRaw !== undefined && folderIdRaw !== null && folderIdRaw !== "") {
+        if (folderIdRaw === "null") {
+          folderId = null;
+        } else if (mongoose.Types.ObjectId.isValid(folderIdRaw)) {
+          folderId = folderIdRaw;
+        } else {
+          return res.status(400).json({ message: "Invalid folderId" });
+        }
       }
 
       const contentHash = crypto
@@ -36,6 +49,14 @@ router.post("/upload", protect, (req, res) => {
       });
 
       if (existingFile) {
+        // If user tries to upload the same content into a different folder,
+        // update the existing metadata to "move" it.
+        const shouldMove = String(existingFile.folderId || null) !== String(folderId || null);
+        if (shouldMove) {
+          existingFile.folderId = folderId;
+          await existingFile.save();
+        }
+
         return res.status(200).json({
           message: "Duplicate file already exists",
           duplicate: true,
@@ -49,6 +70,7 @@ router.post("/upload", protect, (req, res) => {
             s3Key: existingFile.s3Key,
             contentHash: existingFile.contentHash,
             createdAt: existingFile.createdAt,
+            parentFolderId: existingFile.folderId,
           },
         });
       }
@@ -73,6 +95,7 @@ router.post("/upload", protect, (req, res) => {
         size: file.size,
         contentHash,
         isPublic: false,
+        folderId: folderId && mongoose.Types.ObjectId.isValid(folderId) ? folderId : null
       });
 
       return res.status(201).json({
@@ -88,6 +111,7 @@ router.post("/upload", protect, (req, res) => {
           s3Key: savedFile.s3Key,
           contentHash: savedFile.contentHash,
           createdAt: savedFile.createdAt,
+          parentFolderId : savedFile.folderId
         },
       });
 
@@ -105,13 +129,24 @@ router.get("/files", protect, async (req, res) => {
     const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 100);
     const skip = (page - 1) * limit;
 
+    // folderId optional: when omitted or "null", list root-level files
+    const folderIdRaw = req.query.folderId;
+    const folderId =
+      folderIdRaw === undefined || folderIdRaw === "null" || folderIdRaw === ""
+        ? null
+        : folderIdRaw;
+
+    if (folderId && !mongoose.Types.ObjectId.isValid(folderId)) {
+      return res.status(400).json({ error: "Invalid folderId" });
+    }
+
     const [files, total] = await Promise.all([
-      File.find({ owner: req.user.userId })
+      File.find({ owner: req.user.userId, folderId })
         .sort({ createdAt: -1 })
         .skip(skip)
         .limit(limit)
-        .select("_id owner originalName mimeType size bucket s3Key contentHash createdAt"),
-      File.countDocuments({ owner: req.user.userId }),
+        .select("_id owner folderId originalName mimeType size bucket s3Key contentHash createdAt"),
+      File.countDocuments({ owner: req.user.userId, folderId }),
     ]);
 
     return res.status(200).json({
@@ -174,7 +209,61 @@ router.delete("/files/:id", protect, async(req, res)=>{
     }});
   }
   catch(error){
-    // console.error(error);
+    return res.status(500).json({ error: error.message });
+  }
+});
+
+// Move a file to another folder (or root if folderId = null)
+router.patch("/files/:id", protect, async (req, res) => {
+  try {
+    const fileId = req.params.id;
+    if (!mongoose.Types.ObjectId.isValid(fileId)) {
+      return res.status(400).json({ message: "Invalid file ID" });
+    }
+
+    const file = await File.findById(fileId);
+    if (!file) return res.status(404).json({ message: "File not found" });
+    if (String(file.owner) !== req.user.userId) {
+      return res.status(403).json({ message: "Forbidden" });
+    }
+
+    // Accept string values from JSON body
+    const folderIdRaw = req.body.folderId;
+    if (folderIdRaw === undefined) {
+      return res.status(400).json({ message: "folderId is required" });
+    }
+
+    let folderId = null;
+    if (folderIdRaw === null || folderIdRaw === "null" || folderIdRaw === "") {
+      folderId = null;
+    } else {
+      if (!mongoose.Types.ObjectId.isValid(folderIdRaw)) {
+        return res.status(400).json({ message: "Invalid folderId" });
+      }
+
+      const targetFolder = await Folder.findOne({
+        _id: folderIdRaw,
+        owner: req.user.userId,
+      });
+      if (!targetFolder) {
+        return res.status(404).json({ message: "Target folder not found" });
+      }
+      folderId = folderIdRaw;
+    }
+
+    file.folderId = folderId;
+    await file.save();
+
+    return res.status(200).json({
+      message: "File moved successfully",
+      file: {
+        id: file._id,
+        originalName: file.originalName,
+        folderId: file.folderId,
+        createdAt: file.createdAt,
+      },
+    });
+  } catch (error) {
     return res.status(500).json({ error: error.message });
   }
 });
@@ -232,6 +321,7 @@ router.get("/files/:id/url", protect, async(req, res)=>{
     return res.status(500).json({ error: error.message });
   }
 });
+
 
 module.exports = router;
 
