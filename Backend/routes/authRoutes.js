@@ -11,7 +11,7 @@ router.get(
 );
 
 // Step 2: Callback
-const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000";
+const frontendUrl = process.env.CLIENT_URL;
 
 router.get(
   "/google/callback",
