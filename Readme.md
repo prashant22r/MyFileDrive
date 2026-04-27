@@ -63,8 +63,13 @@ Create a `.env` file and add:
 MONGO_URI=your_mongodb_connection_string
 GOOGLE_CLIENT_ID=your_google_client_id
 GOOGLE_CLIENT_SECRET=your_google_client_secret
+GOOGLE_CALLBACK_URL=http://localhost:5000/auth/google/callback
+CLIENT_URL=http://localhost:3000
+JWT_SECRET=your_jwt_secret
 SESSION_SECRET=your_secret_key
 ```
+
+> **Note:** In production (e.g., Render), set `GOOGLE_CALLBACK_URL` to your deployed backend URL (e.g., `https://myfiledrive-api.onrender.com/auth/google/callback`) and `CLIENT_URL` to your deployed frontend URL (e.g., `https://myfiledrive.onrender.com`). Also add the same callback URL to the **Authorized redirect URIs** list in your Google Cloud Console OAuth 2.0 credentials.
 
 Run backend:
 
