@@ -11,10 +11,12 @@ router.get(
 );
 
 // Step 2: Callback
+const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000";
+
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: `${process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000"}/signin`,
+    failureRedirect: `${frontendUrl}/signin`,
   }),
   (req, res) => {
     try {
@@ -28,7 +30,6 @@ router.get(
         { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
       );
 
-      const frontendUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000";
       const redirectUrl = `${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`;
 
       return res.redirect(redirectUrl);

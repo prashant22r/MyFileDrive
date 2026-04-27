@@ -11,10 +11,12 @@ const { initStorage } = require("./config/multer");
 // Initialize app
 const app = express();
 
+const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000";
+
 // Middleware
 app.use(
   cors({
-    origin: process.env.CLIENT_URL || "http://localhost:3000",
+    origin: clientUrl,
     credentials: true,
   })
 );

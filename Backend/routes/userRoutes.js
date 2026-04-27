@@ -13,8 +13,9 @@ router.get("/user", (req, res) => {
 
 // Logout
 router.get("/logout", (req, res) => {
+  const clientUrl = process.env.CLIENT_URL || process.env.FRONTEND_URL || "http://localhost:3000";
   req.logout(() => {
-    res.redirect(process.env.CLIENT_URL || "http://localhost:3000");
+    res.redirect(clientUrl);
   });
 });
 
