@@ -14,7 +14,7 @@ router.get(
 router.get(
   "/google/callback",
   passport.authenticate("google", {
-    failureRedirect: "/",
+    failureRedirect: `${process.env.FRONTEND_URL || "http://localhost:3000"}/signin`,
   }),
   (req, res) => {
     try {
@@ -28,17 +28,10 @@ router.get(
         { expiresIn: process.env.JWT_EXPIRES_IN || "1d" }
       );
 
-      return res.status(200).json({
-        message: "Authentication successful",
-        token,
-        user: {
-          id: req.user._id,
-          name: req.user.name,
-          email: req.user.email,
-          profilePhotoUrl: req.user.profilePhotoUrl,
-          profilePhotoSource: req.user.profilePhotoSource || "google",
-        },
-      });
+      const frontendUrl = process.env.FRONTEND_URL || "http://localhost:3000";
+      const redirectUrl = `${frontendUrl}/auth/callback?token=${encodeURIComponent(token)}`;
+
+      return res.redirect(redirectUrl);
     } catch (error) {
       return res.status(500).json({ error: "Failed to generate token" });
     }
